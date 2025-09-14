@@ -14,41 +14,60 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-
 from __future__ import absolute_import
+
 import os
-import shutil
-import sys
+
 import nox
 
-BLACK_PATHS = ["google", "tests"]
+LINT_PATHS = ["google", "tests", "noxfile.py"]
 
-if os.path.exists("samples"):
-    BLACK_PATHS.append("samples")
+TEST_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
-@nox.session(python="3.7")
+@nox.session
 def lint(session):
     """Run linters.
     Returns a failure if the linters find linting errors or sufficiently
     serious code quality issues.
     """
-    session.install("flake8", "black")
     session.install("-r", "requirements.txt")
-    session.run("black", "--check", *BLACK_PATHS)
-    session.run("flake8", "google", "tests")
+    session.install(
+        "ruff",
+        "mypy",
+        "twine",
+        "build",
+        "importlib_metadata==7.2.1",
+    )
+    session.run(
+        "ruff",
+        "check",
+        *LINT_PATHS, 
+    )
+    session.run(
+        "mypy",
+        "-p",
+        "google",
+        "--install-types",
+        "--non-interactive",
+        "--show-traceback",
+    )
+    # verify that pyproject.toml is valid
+    session.run("python", "-m", "build", "--sdist")
+    session.run("twine", "check", "--strict", "dist/*")
 
-
-@nox.session(python="3.6")
-def blacken(session):
-    """Run black.
-    Format code to uniform standard.
-    This currently uses Python 3.6 due to the automated Kokoro run of synthtool.
-    That run uses an image that doesn't have 3.6 installed. Before updating this
-    check the state of the `gcp_ubuntu_config` we use for that Kokoro run.
+@nox.session()
+def format(session):
     """
-    session.install("black")
-    session.run("black", *BLACK_PATHS)
+    Run Ruff to automatically format code.
+    """
+    session.install("ruff")
+    session.run(
+        "ruff",
+        "check",
+        "--fix",  
+        *LINT_PATHS,
+    )
 
 
 def default(session, path):
@@ -58,38 +77,29 @@ def default(session, path):
     session.install("-r", "requirements.txt")
     # Run py.test against the unit tests.
     session.run(
-        "py.test",
-        # "--cov=util",
-        # "--cov=connector",
-        "--cov-append",
+        "pytest",
+        "--cov=google.cloud.sql.connector",
+        "-v",
         "--cov-config=.coveragerc",
         "--cov-report=",
         "--cov-fail-under=0",
+        "--junitxml=sponge_log.xml",
         path,
         *session.posargs,
     )
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def unit(session):
     default(session, os.path.join("tests", "unit"))
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def system(session):
     default(session, os.path.join("tests", "system"))
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9"])
+
+@nox.session(python=TEST_PYTHON_VERSIONS)
 def test(session):
     default(session, os.path.join("tests", "unit"))
     default(session, os.path.join("tests", "system"))
-
-# @nox.session(python="3.7")
-# def cover(session):
-# """Run the final coverage report.
-# This outputs the coverage report aggregating coverage from the unit
-# test runs (not system test runs), and then erases coverage data.
-# """
-# session.install("coverage", "pytest-cov")
-# session.run("coverage", "report", "--show-missing", "--fail-under=100")
-
-# session.run("coverage", "erase")

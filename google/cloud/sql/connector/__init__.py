@@ -1,4 +1,4 @@
-""""
+"""
 Copyright 2019 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .connector import connect
-from .InstanceConnectionManager import CloudSQLConnectionError
+from google.cloud.sql.connector.connector import Connector
+from google.cloud.sql.connector.connector import create_async_connector
+from google.cloud.sql.connector.enums import IPTypes
+from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.resolver import DefaultResolver
+from google.cloud.sql.connector.resolver import DnsResolver
+from google.cloud.sql.connector.version import __version__
 
-__ALL__ = [connect, CloudSQLConnectionError]
-
-try:
-    import pkg_resources
-
-    pkg_resources.declare_namespace(__name__)
-except ImportError:
-    import pkgutil
-
-    __path__ = pkgutil.extend_path(__path__, __name__)
+__all__ = [
+    "__version__",
+    "create_async_connector",
+    "Connector",
+    "DefaultResolver",
+    "DnsResolver",
+    "IPTypes",
+    "RefreshStrategy",
+]
